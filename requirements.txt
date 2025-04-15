@@ -1,0 +1,9 @@
+flask
+werkzeug
+numpy
+faiss-cpu
+google-generativeai
+PyPDF2
+python-dotenv
+flask-limiter
+flask-talisman
