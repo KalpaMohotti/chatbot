@@ -77,11 +77,11 @@ def get_gemini_embeddings(texts):
     for text in texts:
         try:
             response = genai.embed_content(
-                model="models/text-embedding-004",  # Correct embedding model
+                model="models/text-embedding-004",
                 content=text,
-                task_type="retrieval_document"  # Optional: Specify the task type
+                task_type="retrieval_document"
             )
-            embeddings.append(response['embedding'])  # Access the embedding values
+            embeddings.append(response['embedding'])
         except Exception as e:
             logger.error(f"Error generating embeddings: {e}")
     return np.array(embeddings)
@@ -91,7 +91,7 @@ def create_vector_store(text_chunks):
     try:
         embeddings = get_gemini_embeddings(text_chunks)
         dimension = embeddings.shape[1]
-        index = faiss.IndexFlatL2(dimension)  # L2 distance for similarity
+        index = faiss.IndexFlatL2(dimension)
         index.add(embeddings)
         return index
     except Exception as e:
@@ -169,17 +169,28 @@ def ask_question():
         distances, indices = vector_store.search(query_embedding, k=1)
 
         # Check if any results were found
-        if indices.size == 0 or distances[0][0] > 1.0:  # Adjust the threshold as needed
-            return jsonify({"answer": "No relevant information found in the document."}), 200
+        if indices.size == 0 or distances[0][0] > 1.0:
+            return jsonify({"answer": "I'm sorry, I don't have enough information to answer that. Please ask a different question."}), 200
 
         # Retrieve the most relevant document
         retrieved_doc = text_chunks[indices[0][0]]
 
-        # Create a RAG prompt
-        rag_prompt = f"Based on the following retrieved information, answer the query:\n\nRetrieved Info: {retrieved_doc}\n\nQuery: {user_question}"
+        # Define a system instruction for the chatbot persona
+        # IMPORTANT: Change 'Your Name' to your actual name.
+        system_instruction = (
+            "You are a professional chatbot representing Kalpa Mohotti. "
+            "Answer questions about your skills, projects, and professional experience "
+            "based on the provided document. Use a first-person perspective ('I', 'me')."
+        )
 
-        # Get the final response from Gemini 1.5 Flash
-        model = genai.GenerativeModel("gemini-1.5-flash")
+        # Create a RAG prompt with the system instruction
+        model = genai.GenerativeModel(
+            "gemini-2.5-flash-preview-05-20",
+            system_instruction=system_instruction
+        )
+
+        rag_prompt = f"Based on the following retrieved information, answer the query:\n\nRetrieved Info: {retrieved_doc}\n\nQuery: {user_question}"
+        
         response = model.generate_content(rag_prompt)
 
         return jsonify({"answer": response.text}), 200
